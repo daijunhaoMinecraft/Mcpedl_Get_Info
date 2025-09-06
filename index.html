@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCPEDL 信息展示</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .info-section {
+            margin-bottom: 30px;
+        }
+        .info-section h2 {
+            color: #3498db;
+            border-left: 4px solid #3498db;
+            padding-left: 10px;
+        }
+        .detail-item {
+            margin-bottom: 10px;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .download-links {
+            list-style-type: none;
+            padding: 0;
+        }
+        .download-links li {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+        }
+        .download-links a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .download-links a:hover {
+            text-decoration: underline;
+        }
+        .versions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .version-tag {
+            background-color: #3498db;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        .description {
+            line-height: 1.6;
+        }
+        .description img {
+            max-width: 100%;
+            height: auto;
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #7f8c8d;
+        }
+        .error {
+            background-color: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        #urlInput {
+            width: 70%;
+            padding: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+        }
+        #fetchButton {
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        #fetchButton:hover {
+            background-color: #2980b9;
+        }
+        .intro {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .intro h2 {
+            margin-top: 0;
+            color: #0d47a1;
+        }
+        .intro ul {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MCPEDL 信息获取器</h1>
+        
+        <div class="intro">
+            <h2>使用说明</h2>
+            <p>这是一个用于获取和展示 MCPEDL 网站资源信息的工具：</p>
+            <ul>
+                <li>在输入框中粘贴 MCPEDL 资源页面的完整 URL</li>
+                <li>点击"获取信息"按钮获取资源详细信息</li>
+                <li>页面将展示资源标题、作者、版本、支持的 Minecraft 版本等信息</li>
+                <li>可直接下载资源文件</li>
+                <li>自动处理懒加载图片和 base64 编码图片</li>
+            </ul>
+        </div>
+        
+        <div class="info-section">
+            <input type="text" id="urlInput" placeholder="请输入 MCPEDL 页面 URL，例如: https://mcpedl.com/modular-sofas/">
+            <button id="fetchButton" onclick="fetchInfo()">获取信息</button>
+        </div>
+        
+        <div id="content">
+            <div class="loading">请输入 URL 并点击 "获取信息" 按钮</div>
+        </div>
+    </div>
+
+    <script>
+        // 处理懒加载图片和base64图片的函数
+        function handleLazyImages() {
+            // 查找所有具有data-src属性的图片
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            
+            // 将data-src的值赋给src属性，强制加载图片
+            lazyImages.forEach(img => {
+                img.src = img.dataset.src;
+                // 移除data-src属性，避免重复处理
+                img.removeAttribute('data-src');
+            });
+            
+            // 处理懒加载属性但src为base64的图片
+            const base64LazyImages = document.querySelectorAll('img[data-manual-lazy][src^="data:image"]');
+            base64LazyImages.forEach(img => {
+                // 移除懒加载属性，让图片正常显示
+                img.removeAttribute('data-manual-lazy');
+            });
+        }
+        
+        async function fetchInfo() {
+            const url = document.getElementById('urlInput').value;
+            const contentDiv = document.getElementById('content');
+            
+            if (!url) {
+                contentDiv.innerHTML = '<div class="error">请输入有效的 URL</div>';
+                return;
+            }
+            
+            contentDiv.innerHTML = '<div class="loading">正在获取信息...</div>';
+            
+            try {
+                const response = await fetch('/mcpedl/info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                displayInfo(data);
+            } catch (error) {
+                contentDiv.innerHTML = `<div class="error">获取信息时出错: ${error.message}</div>`;
+            }
+        }
+        
+        function displayInfo(data) {
+            const contentDiv = document.getElementById('content');
+            const model = data.state.slug.model;
+            
+            // 标题
+            let html = `<h1>${model.title}</h1>`;
+            
+            // 基本信息
+            html += `
+            <div class="info-section">
+                <h2>基本信息</h2>
+                <div class="detail-item">
+                    <span class="detail-label">作者:</span> 
+                    <span>${model.user.username}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">更新日期:</span> 
+                    <span>${model.update_date}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">版本:</span> 
+                    <span>${model.version}</span>
+                </div>
+            </div>
+            `;
+            
+            // 支持的版本
+            if (model.minecraft_versions && model.minecraft_versions.length > 0) {
+                html += `
+                <div class="info-section">
+                    <h2>支持的 Minecraft 版本</h2>
+                    <div class="versions">
+                `;
+                
+                model.minecraft_versions.forEach(version => {
+                    html += `<span class="version-tag">${version.name}</span>`;
+                });
+                
+                html += `
+                    </div>
+                </div>
+                `;
+            }
+            
+            // 下载链接
+            if ((model.downloads && model.downloads.length > 0) || 
+                (model.downloads_vip && model.downloads_vip.length > 0)) {
+                html += `
+                <div class="info-section">
+                    <h2>下载链接</h2>
+                    <ul class="download-links">
+                `;
+                
+                if (model.downloads && model.downloads.length > 0) {
+                    model.downloads.forEach(download => {
+                        html += `
+                        <li>
+                            <a href="${download.file}" target="_blank">${download.name}</a>
+                        </li>
+                        `;
+                    });
+                }
+                
+                if (model.downloads_vip && model.downloads_vip.length > 0) {
+                    html += '<h3>VIP 下载链接</h3>';
+                    model.downloads_vip.forEach(download => {
+                        html += `
+                        <li>
+                            <a href="${download.file}" target="_blank">${download.name}</a>
+                        </li>
+                        `;
+                    });
+                }
+                
+                html += `
+                    </ul>
+                </div>
+                `;
+            }
+            // 简介
+            if (model.introduction) {
+                html += `
+                <div class="info-section">
+                    <h2>简介</h2>
+                    <div class="description">
+                        ${model.introduction}\n
+                    </div>
+                </div>
+                `;
+            }
+            // 详细信息
+            if (model.description) {
+                html += `
+                <div class="info-section">
+                    <h2>详细信息</h2>
+                    <div class="description">
+                        ${model.description}\n
+                    </div>
+                </div>
+                `;
+            }
+            
+            // 更新日志
+            if (model.changelog) {
+                html += `
+                <div class="info-section">
+                    <h2>更新日志</h2>
+                    <div class="description">
+                        ${model.changelog}
+                    </div>
+                </div>
+                `;
+            }
+            
+            contentDiv.innerHTML = html;
+            
+            // 处理懒加载图片
+            setTimeout(handleLazyImages, 100);
+        }
+    </script>
+</body>
+</html>
